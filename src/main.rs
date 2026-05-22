@@ -488,7 +488,7 @@ impl Args {
                     std::process::exit(0);
                 }
                 "-V" | "--version" => {
-                    println!("codex-cost-tui {}", env!("CARGO_PKG_VERSION"));
+                    println!("codex-cost {}", env!("CARGO_PKG_VERSION"));
                     std::process::exit(0);
                 }
                 "--sessions" => {
@@ -522,7 +522,7 @@ impl Args {
 
 fn print_help() {
     println!(
-        "codex-cost-tui {}\n\nUSAGE:\n    codex-cost-tui [--sessions PATH] [--pricing PATH] [--no-web-cost]\n\nOPTIONS:\n    --sessions PATH    Codex session directory containing rollout JSONL files\n    --pricing PATH     Optional pricing JSON override\n    --no-web-cost      Disable web-search call cost in estimates\n    -h, --help         Print help\n    -V, --version      Print version",
+        "codex-cost {}\n\nUSAGE:\n    codex-cost [--sessions PATH] [--pricing PATH] [--no-web-cost]\n\nOPTIONS:\n    --sessions PATH    Codex session directory containing rollout JSONL files\n    --pricing PATH     Optional pricing JSON override\n    --no-web-cost      Disable web-search call cost in estimates\n    -h, --help         Print help\n    -V, --version      Print version",
         env!("CARGO_PKG_VERSION")
     );
 }
@@ -1531,7 +1531,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("codex-cost-tui-{name}-{nanos}"));
+        let dir = std::env::temp_dir().join(format!("codex-cost-{name}-{nanos}"));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

@@ -1,4 +1,4 @@
-# codex-cost-tui
+# codex-cost
 
 Rust terminal UI for browsing local Codex session logs and estimating API-equivalent cost.
 
