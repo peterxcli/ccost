@@ -2,6 +2,8 @@
 
 Rust TUI for browsing local Codex session logs, searching past chats, and estimating API-equivalent cost.
 
+https://github.com/user-attachments/assets/0869bcde-96be-4d98-9c07-c0586b0ea36a
+
 ## Run
 
 ```bash
