@@ -12,7 +12,7 @@ use crate::ui::{
 };
 use crate::util::{file_metadata_parts, hash_hex, relative_path_string, write_json_atomic};
 use crate::worker::{
-    index_lock_path, run_index_worker, IndexLaunchMode, IndexLock, IndexWorkerMode, LoadMessage,
+    index_lock_path, IndexLaunchMode, IndexLock, IndexWorker, IndexWorkerMode, LoadMessage,
     LoadPhase,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -841,7 +841,7 @@ fn writer_does_not_hide_incompatible_cache_error_with_watcher_status() {
     let worker_sessions_dir = sessions_dir.clone();
     let worker_cache_dir = cache_dir.clone();
     thread::spawn(move || {
-        run_index_worker(
+        IndexWorker::run(
             worker_sessions_dir,
             worker_cache_dir,
             tx,

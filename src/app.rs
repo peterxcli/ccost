@@ -13,7 +13,7 @@ use crate::models::Session;
 use crate::pricing::{estimate_cost, CostEstimate, Pricing};
 use crate::search::SearchIndex;
 use crate::worker::{
-    run_index_worker, IndexLaunchMode, IndexWorkerMode, LoadMessage, LoadPhase, LoadProgress,
+    IndexLaunchMode, IndexWorker, IndexWorkerMode, LoadMessage, LoadPhase, LoadProgress,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -237,7 +237,7 @@ impl App {
         self.status = format!("loading sessions from {}", self.sessions_dir.display());
 
         thread::spawn(move || {
-            run_index_worker(sessions_dir, cache_dir, tx.clone(), index_worker_mode);
+            IndexWorker::run(sessions_dir, cache_dir, tx.clone(), index_worker_mode);
             let _ = tx.send(LoadMessage::Finished);
         });
     }
