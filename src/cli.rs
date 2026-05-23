@@ -4,9 +4,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 
-use crate::{
-    cache_dir_for_sessions, index_lock_path, run_tui, App, IndexLock, IndexWorkerMode, Pricing,
-};
+use crate::app::App;
+use crate::cache::cache_dir_for_sessions;
+use crate::pricing::Pricing;
+use crate::ui::run_tui;
+use crate::worker::{index_lock_path, IndexLock, IndexWorkerMode};
 
 #[derive(Debug, Default)]
 pub(crate) struct Args {

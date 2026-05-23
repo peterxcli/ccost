@@ -8,9 +8,12 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::{ListState, TableState};
 
-use crate::{
-    cache_dir_for_sessions, estimate_cost, run_index_worker, CostEstimate, IndexLaunchMode,
-    IndexWorkerMode, LoadMessage, LoadPhase, LoadProgress, Pricing, SearchIndex, Session,
+use crate::cache::cache_dir_for_sessions;
+use crate::models::Session;
+use crate::pricing::{estimate_cost, CostEstimate, Pricing};
+use crate::search::SearchIndex;
+use crate::worker::{
+    run_index_worker, IndexLaunchMode, IndexWorkerMode, LoadMessage, LoadPhase, LoadProgress,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

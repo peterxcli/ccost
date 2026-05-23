@@ -6,14 +6,16 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
+use crate::models::{FileFingerprint, FileMetadataParts, Session};
+use crate::parser::{parse_session_or_error, parse_session_with_fingerprint_or_error};
+use crate::search::{build_fst_bytes, session_terms, SearchIndex};
 #[cfg(test)]
-use crate::hash_file_fingerprint;
-use crate::{
-    build_fst_bytes, file_metadata_parts, hash_hex, hash_text, parse_session_or_error,
-    parse_session_with_fingerprint_or_error, read_json, relative_path_string, session_terms,
-    unix_seconds_now, write_bytes_atomic, write_json_atomic, FileFingerprint, FileMetadataParts,
-    LoadPhase, LoadProgress, LoadResult, SearchIndex, Session,
+use crate::util::hash_file_fingerprint;
+use crate::util::{
+    file_metadata_parts, hash_hex, hash_text, read_json, relative_path_string, unix_seconds_now,
+    write_bytes_atomic, write_json_atomic,
 };
+use crate::worker::{LoadPhase, LoadProgress, LoadResult};
 
 pub(crate) const CACHE_SCHEMA_VERSION: u32 = 5;
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

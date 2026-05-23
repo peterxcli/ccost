@@ -6,10 +6,11 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::{
-    fingerprint_from_hash, hash_file_fingerprint, hex_bytes, json_u64, FileFingerprint,
-    FileMetadataParts, GoalUsage, ParsedSessionFile, Session, TokenEvent, TokenUsage,
+use crate::models::{
+    json_u64, FileFingerprint, FileMetadataParts, GoalUsage, ParsedSessionFile, Session,
+    TokenEvent, TokenUsage,
 };
+use crate::util::{fingerprint_from_hash, hash_file_fingerprint, hex_bytes};
 
 pub(crate) fn parse_session_or_error(path: &Path) -> Session {
     match parse_session(path) {

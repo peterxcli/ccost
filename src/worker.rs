@@ -12,10 +12,11 @@ use notify::{
     Config as NotifyConfig, Event as NotifyEvent, RecommendedWatcher, RecursiveMode, Watcher,
 };
 
-use crate::{
+use crate::cache::{
     load_cached_index, load_manifest, reconcile_session_cache, reconcile_session_cache_for_paths,
-    SearchIndex, Session,
 };
+use crate::models::Session;
+use crate::search::SearchIndex;
 
 pub(crate) const WATCH_DEBOUNCE_MS: u64 = 250;
 pub(crate) struct IndexLock {

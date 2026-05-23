@@ -17,7 +17,11 @@ use ratatui::widgets::{
 };
 use ratatui::{Frame, Terminal};
 
-use crate::{estimate_cost, unique_search_terms, App, Focus, InputMode, LoadProgress, Session};
+use crate::app::{App, Focus, InputMode};
+use crate::models::Session;
+use crate::pricing::estimate_cost;
+use crate::search::unique_search_terms;
+use crate::worker::LoadProgress;
 
 pub(crate) fn match_highlight_style() -> Style {
     Style::default()

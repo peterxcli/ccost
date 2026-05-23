@@ -1,4 +1,21 @@
-use super::*;
+use crate::app::{App, Focus, InputMode, SortDirection, SortKey};
+use crate::cache::{
+    build_merkle_snapshot, cache_dir_for_sessions, load_cached_index, load_sessions_with_progress,
+    reconcile_session_cache, reconcile_session_cache_for_paths, CacheManifest,
+    CACHE_SCHEMA_VERSION,
+};
+use crate::models::{GoalUsage, Session, TokenEvent, TokenUsage};
+use crate::parser::{parse_session, parse_session_with_fingerprint};
+use crate::pricing::{estimate_cost, Pricing};
+use crate::search::SearchIndex;
+use crate::ui::{
+    highlight_matches, match_highlight_style, search_cursor_position, session_table_empty_message,
+};
+use crate::util::{file_metadata_parts, hash_hex, relative_path_string, write_json_atomic};
+use crate::worker::{
+    index_lock_path, run_index_worker, IndexLaunchMode, IndexLock, IndexWorkerMode, LoadMessage,
+    LoadPhase,
+};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::prelude::{Rect, Style};
 use ratatui::widgets::{ListState, TableState};
