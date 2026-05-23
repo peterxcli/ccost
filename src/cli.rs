@@ -10,6 +10,9 @@ use crate::pricing::Pricing;
 use crate::ui::run_tui;
 use crate::worker::{index_lock_path, IndexLock, IndexWorkerMode};
 
+const APP_NAME: &str = "ccost";
+const LEGACY_APP_NAME: &str = "codex-cost";
+
 #[derive(Debug, Default)]
 pub(crate) struct Args {
     pub(crate) sessions: Option<PathBuf>,
@@ -42,7 +45,7 @@ impl Args {
                     std::process::exit(0);
                 }
                 "-V" | "--version" => {
-                    println!("codex-cost {}", env!("CARGO_PKG_VERSION"));
+                    println!("{} {}", APP_NAME, env!("CARGO_PKG_VERSION"));
                     std::process::exit(0);
                 }
                 "--sessions" => {
@@ -82,8 +85,11 @@ impl Args {
 
 pub(crate) fn print_help() {
     println!(
-        "codex-cost {}\n\nUSAGE:\n    codex-cost [--sessions PATH] [--pricing PATH] [--no-web-cost]\n\nOPTIONS:\n    --sessions PATH      Codex session directory containing rollout JSONL files\n    --pricing PATH       Optional pricing JSON override\n    --no-web-cost        Disable web-search call cost in estimates\n    --read-only-index    Open without writing the persisted search cache\n    --force-index        Write the cache even when index.lock is held; can corrupt cache data\n    -h, --help           Print help\n    -V, --version        Print version",
-        env!("CARGO_PKG_VERSION")
+        "{} {}\n\nUSAGE:\n    {} [--sessions PATH] [--pricing PATH] [--no-web-cost]\n\nOPTIONS:\n    --sessions PATH      Codex or Claude Code session directory containing JSONL files\n    --pricing PATH       Optional pricing JSON override\n    --no-web-cost        Disable web-search call cost in estimates\n    --read-only-index    Open without writing the persisted search cache\n    --force-index        Write the cache even when index.lock is held; can corrupt cache data\n    -h, --help           Print help\n    -V, --version        Print version\n\nALIAS:\n    {} remains available as a compatibility alias",
+        APP_NAME,
+        env!("CARGO_PKG_VERSION"),
+        APP_NAME,
+        LEGACY_APP_NAME
     );
 }
 
@@ -107,7 +113,8 @@ pub(crate) fn choose_index_worker_mode(args: &Args, cache_dir: &Path) -> Result<
 pub(crate) fn prompt_locked_index_mode(cache_dir: &Path) -> Result<IndexWorkerMode> {
     let lock_path = index_lock_path(cache_dir);
     eprintln!(
-        "\nAnother codex-cost instance is already holding the search index lock:\n  {}",
+        "\nAnother {} instance is already holding the search index lock:\n  {}",
+        APP_NAME,
         lock_path.display()
     );
     if let Ok(owner) = fs::read_to_string(&lock_path) {
@@ -117,7 +124,7 @@ pub(crate) fn prompt_locked_index_mode(cache_dir: &Path) -> Result<IndexWorkerMo
         }
     }
     eprintln!(
-        "Use read-only mode to browse the current cached index. Force writing only if you have verified that no other codex-cost instance is running; forcing while another writer is active can corrupt the persisted cache."
+        "Use read-only mode to browse the current cached index. Force writing only if you have verified that no other ccost/codex-cost instance is running; forcing while another writer is active can corrupt the persisted cache."
     );
 
     loop {

@@ -1,6 +1,6 @@
 [package]
 name = "codex-cost"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 rust-version = "1.75"
 description = "Terminal UI for inspecting Codex session token usage and cost estimates"
@@ -18,3 +18,11 @@ serde_json = "1.0"
 sha2 = "0.10"
 unicode-segmentation = "=1.12.0"
 walkdir = "2.5"
+
+[[bin]]
+name = "ccost"
+path = "src/bin/ccost.rs"
+
+[[bin]]
+name = "codex-cost"
+path = "src/bin/codex-cost.rs"

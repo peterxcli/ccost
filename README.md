@@ -7,22 +7,23 @@ https://github.com/user-attachments/assets/0869bcde-96be-4d98-9c07-c0586b0ea36a
 ## Install
 
 ```bash
-brew install --cask peterxcli/tap/codex-cost
+brew install --cask peterxcli/tap/ccost
 ```
 
 ## Run
 
 ```bash
-cargo run --release -- --sessions ~/.codex/sessions
+ccost --sessions ~/.codex/sessions
 ```
 
 For Claude Code transcripts:
 
 ```bash
-cargo run --release -- --sessions ~/.claude/projects
+ccost --sessions ~/.claude/projects
 ```
 
 Default session directory: `$CODEX_HOME/sessions`, or `~/.codex/sessions` when `CODEX_HOME` is unset.
+`codex-cost` remains available as a compatibility alias.
 
 ## Features
 
@@ -48,7 +49,7 @@ Default session directory: `$CODEX_HOME/sessions`, or `~/.codex/sessions` when `
 ## Options
 
 ```bash
-codex-cost [--sessions PATH] [--pricing PATH] [--no-web-cost] [--read-only-index] [--force-index]
+ccost [--sessions PATH] [--pricing PATH] [--no-web-cost] [--read-only-index] [--force-index]
 ```
 
 - `--read-only-index`: open without writing the persisted search cache.

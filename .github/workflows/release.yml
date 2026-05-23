@@ -9,7 +9,9 @@ permissions:
   contents: write
 
 env:
-  BIN_NAME: codex-cost
+  PACKAGE_NAME: codex-cost
+  BIN_NAME: ccost
+  LEGACY_BIN_NAME: codex-cost
   TAP_REPO: peterxcli/homebrew-tap
 
 jobs:
@@ -39,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          cargo_version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "codex-cost") | .version')"
+          cargo_version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r --arg package "${PACKAGE_NAME}" '.packages[] | select(.name == $package) | .version')"
           if [ "${version}" != "${cargo_version}" ]; then
             echo "Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${cargo_version}" >&2
             exit 1
@@ -64,7 +66,8 @@ jobs:
             local staging
             staging="$(mktemp -d)"
             cp "target/${target}/release/${BIN_NAME}" "${staging}/${BIN_NAME}"
-            tar -C "${staging}" -czf "dist/${asset}" "${BIN_NAME}"
+            cp "target/${target}/release/${LEGACY_BIN_NAME}" "${staging}/${LEGACY_BIN_NAME}"
+            tar -C "${staging}" -czf "dist/${asset}" "${BIN_NAME}" "${LEGACY_BIN_NAME}"
             shasum -a 256 "dist/${asset}" > "dist/${asset}.sha256"
           }
 
@@ -100,7 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          cargo_version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "codex-cost") | .version')"
+          cargo_version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r --arg package "${PACKAGE_NAME}" '.packages[] | select(.name == $package) | .version')"
           if [ "${version}" != "${cargo_version}" ]; then
             echo "Tag ${GITHUB_REF_NAME} does not match Cargo.toml version ${cargo_version}" >&2
             exit 1
@@ -124,7 +127,8 @@ jobs:
             local staging
             staging="$(mktemp -d)"
             cp "target/${target}/release/${BIN_NAME}" "${staging}/${BIN_NAME}"
-            tar -C "${staging}" -czf "dist/${asset}" "${BIN_NAME}"
+            cp "target/${target}/release/${LEGACY_BIN_NAME}" "${staging}/${LEGACY_BIN_NAME}"
+            tar -C "${staging}" -czf "dist/${asset}" "${BIN_NAME}" "${LEGACY_BIN_NAME}"
             shasum -a 256 "dist/${asset}" > "dist/${asset}.sha256"
           }
 
@@ -188,6 +192,7 @@ jobs:
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
           cask_path="homebrew-tap/Casks/${BIN_NAME}.rb"
+          legacy_cask_path="homebrew-tap/Casks/${LEGACY_BIN_NAME}.rb"
           sha256_arm64="$(awk '{print $1}' "dist/${BIN_NAME}-aarch64-apple-darwin.tar.gz.sha256")"
           sha256_intel="$(awk '{print $1}' "dist/${BIN_NAME}-x86_64-apple-darwin.tar.gz.sha256")"
           mkdir -p "$(dirname "${cask_path}")"
@@ -205,9 +210,28 @@ jobs:
             homepage "https://github.com/${GITHUB_REPOSITORY}"
 
             binary "${BIN_NAME}"
+            binary "${LEGACY_BIN_NAME}"
           end
           EOF_CASK
           ruby -pi -e 'gsub(/^ {10}/, "")' "${cask_path}"
+          cat > "${legacy_cask_path}" <<EOF_CASK
+          cask "${LEGACY_BIN_NAME}" do
+            version "${version}"
+            arch arm: "aarch64", intel: "x86_64"
+
+            sha256 arm: "${sha256_arm64}",
+                   intel: "${sha256_intel}"
+
+            url "https://github.com/${TAP_REPO}/releases/download/${BIN_NAME}-v#{version}/${BIN_NAME}-#{arch}-apple-darwin.tar.gz"
+            name "${BIN_NAME}"
+            desc "Compatibility cask for ${BIN_NAME}"
+            homepage "https://github.com/${GITHUB_REPOSITORY}"
+
+            binary "${BIN_NAME}"
+            binary "${LEGACY_BIN_NAME}"
+          end
+          EOF_CASK
+          ruby -pi -e 'gsub(/^ {10}/, "")' "${legacy_cask_path}"
 
       - name: Commit Homebrew tap update
         working-directory: homebrew-tap
@@ -215,7 +239,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "Casks/${BIN_NAME}.rb"
+          git add "Casks/${BIN_NAME}.rb" "Casks/${LEGACY_BIN_NAME}.rb"
           if git diff --cached --quiet; then
             echo "Homebrew cask already up to date."
             exit 0
