@@ -18,6 +18,8 @@ pub(crate) struct PricingFile {
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ModelPrice {
     pub(crate) input_per_m: f64,
+    #[serde(default)]
+    pub(crate) cache_creation_input_per_m: f64,
     pub(crate) cached_input_per_m: f64,
     pub(crate) output_per_m: f64,
     #[serde(default)]
@@ -42,6 +44,7 @@ pub(crate) struct CostEstimate {
     pub(crate) web_search_cost: f64,
     pub(crate) total_cost: f64,
     pub(crate) uncached_input_tokens: u64,
+    pub(crate) cache_creation_input_tokens: u64,
     pub(crate) cached_input_tokens: u64,
     pub(crate) output_tokens: u64,
     pub(crate) long_context_applied: bool,
@@ -73,6 +76,7 @@ impl Default for Pricing {
             "gpt-5.5".to_string(),
             ModelPrice {
                 input_per_m: 5.0,
+                cache_creation_input_per_m: 0.0,
                 cached_input_per_m: 0.5,
                 output_per_m: 30.0,
                 long_context_threshold: Some(272_000),
@@ -85,6 +89,7 @@ impl Default for Pricing {
             "gpt-5.4".to_string(),
             ModelPrice {
                 input_per_m: 2.5,
+                cache_creation_input_per_m: 0.0,
                 cached_input_per_m: 0.25,
                 output_per_m: 15.0,
                 long_context_threshold: Some(272_000),
@@ -93,30 +98,108 @@ impl Default for Pricing {
                 long_context_output_multiplier: Some(1.5),
             },
         );
+        models.insert(
+            "claude-opus-4-1".to_string(),
+            claude_price(15.0, 18.75, 1.50, 75.0),
+        );
+        models.insert(
+            "claude-opus-4".to_string(),
+            claude_price(15.0, 18.75, 1.50, 75.0),
+        );
+        models.insert(
+            "claude-sonnet-4-5".to_string(),
+            claude_price(3.0, 3.75, 0.30, 15.0),
+        );
+        models.insert(
+            "claude-sonnet-4".to_string(),
+            claude_price(3.0, 3.75, 0.30, 15.0),
+        );
+        models.insert(
+            "claude-sonnet-3-7".to_string(),
+            claude_price(3.0, 3.75, 0.30, 15.0),
+        );
+        models.insert(
+            "claude-sonnet-3-5".to_string(),
+            claude_price(3.0, 3.75, 0.30, 15.0),
+        );
+        models.insert(
+            "claude-haiku-4-5".to_string(),
+            claude_price(1.0, 1.25, 0.10, 5.0),
+        );
+        models.insert(
+            "claude-haiku-3-5".to_string(),
+            claude_price(0.80, 1.0, 0.08, 4.0),
+        );
         Self {
             web_search_per_1k: 10.0,
             models,
         }
     }
 }
+
+fn claude_price(
+    input_per_m: f64,
+    cache_creation_input_per_m: f64,
+    cached_input_per_m: f64,
+    output_per_m: f64,
+) -> ModelPrice {
+    ModelPrice {
+        input_per_m,
+        cache_creation_input_per_m,
+        cached_input_per_m,
+        output_per_m,
+        long_context_threshold: None,
+        long_context_multiplier: None,
+        long_context_input_multiplier: None,
+        long_context_output_multiplier: None,
+    }
+}
+
+fn model_price_for<'a>(
+    models: &'a HashMap<String, ModelPrice>,
+    model: &str,
+) -> Option<&'a ModelPrice> {
+    models.get(model).or_else(|| {
+        models
+            .iter()
+            .filter(|(key, _)| key.starts_with("claude-") && model.starts_with(key.as_str()))
+            .max_by_key(|(key, _)| key.len())
+            .map(|(_, price)| price)
+    })
+}
+
 pub(crate) fn estimate_cost(
     session: &Session,
     pricing: &Pricing,
     include_web_cost: bool,
 ) -> CostEstimate {
     let usage = session.final_usage().cloned().unwrap_or_default();
-    let cached = usage.cached_input_tokens.min(usage.input_tokens);
-    let uncached = usage.input_tokens.saturating_sub(cached);
     let model = session.model.as_deref().unwrap_or_default();
+    let model_price = model_price_for(&pricing.models, model);
+    let separate_cache_pricing = model.starts_with("claude-")
+        || model_price
+            .map(|price| price.cache_creation_input_per_m > 0.0)
+            .unwrap_or(false);
+    let cached = if separate_cache_pricing {
+        usage.cached_input_tokens
+    } else {
+        usage.cached_input_tokens.min(usage.input_tokens)
+    };
+    let uncached = if separate_cache_pricing {
+        usage.input_tokens
+    } else {
+        usage.input_tokens.saturating_sub(cached)
+    };
     let mut estimate = CostEstimate {
         uncached_input_tokens: uncached,
+        cache_creation_input_tokens: usage.cache_creation_input_tokens,
         cached_input_tokens: cached,
         output_tokens: usage.output_tokens,
         known_model_price: false,
         ..CostEstimate::default()
     };
 
-    if let Some(model_price) = pricing.models.get(model) {
+    if let Some(model_price) = model_price {
         let long_context_applied = model_price
             .long_context_threshold
             .map(|threshold| session.max_request_input() > threshold)
@@ -142,6 +225,8 @@ pub(crate) fn estimate_cost(
         };
         estimate.token_cost = input_multiplier
             * ((uncached as f64 / 1_000_000.0) * model_price.input_per_m
+                + (usage.cache_creation_input_tokens as f64 / 1_000_000.0)
+                    * model_price.cache_creation_input_per_m
                 + (cached as f64 / 1_000_000.0) * model_price.cached_input_per_m)
             + output_multiplier
                 * ((usage.output_tokens as f64 / 1_000_000.0) * model_price.output_per_m);

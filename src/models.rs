@@ -7,6 +7,8 @@ pub(crate) const MAX_CACHED_TOKEN_EVENTS: usize = 20;
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct TokenUsage {
     pub(crate) input_tokens: u64,
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub(crate) cache_creation_input_tokens: u64,
     pub(crate) cached_input_tokens: u64,
     pub(crate) output_tokens: u64,
     pub(crate) reasoning_output_tokens: u64,
@@ -76,6 +78,8 @@ impl TokenUsage {
     pub(crate) fn from_value(value: &Value) -> Self {
         Self {
             input_tokens: json_u64(value.get("input_tokens")).unwrap_or_default(),
+            cache_creation_input_tokens: json_u64(value.get("cache_creation_input_tokens"))
+                .unwrap_or_default(),
             cached_input_tokens: json_u64(value.get("cached_input_tokens"))
                 .or_else(|| json_u64(value.get("cache_read_input_tokens")))
                 .unwrap_or_default(),
@@ -89,6 +93,7 @@ impl TokenUsage {
 
     pub(crate) fn is_zero(&self) -> bool {
         self.input_tokens == 0
+            && self.cache_creation_input_tokens == 0
             && self.cached_input_tokens == 0
             && self.output_tokens == 0
             && self.reasoning_output_tokens == 0
@@ -104,10 +109,25 @@ impl TokenUsage {
         self
     }
 
+    pub(crate) fn normalize_total_with_separate_cache(mut self) -> Self {
+        if self.total_tokens == 0 {
+            self.total_tokens = self
+                .input_tokens
+                .saturating_add(self.cache_creation_input_tokens)
+                .saturating_add(self.cached_input_tokens)
+                .saturating_add(self.output_tokens)
+                .saturating_add(self.reasoning_output_tokens);
+        }
+        self
+    }
+
     pub(crate) fn saturating_sub(&self, previous: Option<&TokenUsage>) -> Self {
         let previous = previous.cloned().unwrap_or_default();
         Self {
             input_tokens: self.input_tokens.saturating_sub(previous.input_tokens),
+            cache_creation_input_tokens: self
+                .cache_creation_input_tokens
+                .saturating_sub(previous.cache_creation_input_tokens),
             cached_input_tokens: self
                 .cached_input_tokens
                 .saturating_sub(previous.cached_input_tokens),
@@ -122,6 +142,9 @@ impl TokenUsage {
     pub(crate) fn saturating_add(&self, other: &TokenUsage) -> Self {
         Self {
             input_tokens: self.input_tokens.saturating_add(other.input_tokens),
+            cache_creation_input_tokens: self
+                .cache_creation_input_tokens
+                .saturating_add(other.cache_creation_input_tokens),
             cached_input_tokens: self
                 .cached_input_tokens
                 .saturating_add(other.cached_input_tokens),
@@ -132,6 +155,24 @@ impl TokenUsage {
             total_tokens: self.total_tokens.saturating_add(other.total_tokens),
         }
         .normalize_total()
+    }
+
+    pub(crate) fn saturating_add_with_separate_cache(&self, other: &TokenUsage) -> Self {
+        Self {
+            input_tokens: self.input_tokens.saturating_add(other.input_tokens),
+            cache_creation_input_tokens: self
+                .cache_creation_input_tokens
+                .saturating_add(other.cache_creation_input_tokens),
+            cached_input_tokens: self
+                .cached_input_tokens
+                .saturating_add(other.cached_input_tokens),
+            output_tokens: self.output_tokens.saturating_add(other.output_tokens),
+            reasoning_output_tokens: self
+                .reasoning_output_tokens
+                .saturating_add(other.reasoning_output_tokens),
+            total_tokens: self.total_tokens.saturating_add(other.total_tokens),
+        }
+        .normalize_total_with_separate_cache()
     }
 }
 impl Session {

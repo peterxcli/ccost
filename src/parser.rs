@@ -145,6 +145,56 @@ impl SessionParser {
                 .and_then(Value::as_str)
                 .unwrap_or_default()
             {
+                "user" => {
+                    Self::record_claude_metadata(&value, &mut id, &mut cwd, &mut model_provider);
+                    let message = value.get("message").unwrap_or(&Value::Null);
+                    if message
+                        .get("role")
+                        .and_then(Value::as_str)
+                        .unwrap_or("user")
+                        == "user"
+                    {
+                        let text = Self::extract_message_text(message);
+                        if !text.is_empty() {
+                            Self::record_user_message(
+                                &mut first_user_message,
+                                &mut search_messages,
+                                &text,
+                            );
+                        }
+                    }
+                }
+                "assistant" => {
+                    Self::record_claude_metadata(&value, &mut id, &mut cwd, &mut model_provider);
+                    let message = value.get("message").unwrap_or(&Value::Null);
+                    if let Some(parsed_model) = Self::model_from_payload(Some(message)) {
+                        current_model = Some(parsed_model.clone());
+                        model = Some(parsed_model);
+                    }
+                    let text = Self::extract_message_text(message);
+                    if !text.is_empty() {
+                        final_assistant_message = Some(text);
+                    }
+                    if let Some(raw_usage) = Self::usage_from_claude_message(message) {
+                        if raw_usage.is_zero() {
+                            continue;
+                        }
+                        if model.is_none() {
+                            model = current_model.clone();
+                        }
+                        let total = previous_total_usage
+                            .clone()
+                            .unwrap_or_default()
+                            .saturating_add_with_separate_cache(&raw_usage);
+                        previous_total_usage = Some(total.clone());
+                        token_events.push(TokenEvent {
+                            timestamp: top_timestamp,
+                            total,
+                            last: raw_usage,
+                            context_window: None,
+                        });
+                    }
+                }
                 "session_meta" => {
                     let payload = value.get("payload").unwrap_or(&Value::Null);
                     if let Some(meta_id) = payload.get("id").and_then(Value::as_str) {
@@ -388,6 +438,9 @@ impl SessionParser {
 
     fn extract_message_text(payload: &Value) -> String {
         let mut parts = Vec::new();
+        if let Some(text) = payload.get("content").and_then(Value::as_str) {
+            return text.to_string();
+        }
         if let Some(content) = payload.get("content").and_then(Value::as_array) {
             for item in content {
                 if let Some(text) = item.get("text").and_then(Value::as_str) {
@@ -400,6 +453,21 @@ impl SessionParser {
             }
         }
         parts.join("\n")
+    }
+
+    fn record_claude_metadata(
+        value: &Value,
+        id: &mut String,
+        cwd: &mut Option<String>,
+        model_provider: &mut Option<String>,
+    ) {
+        if let Some(session_id) = Self::non_empty_json_string(value.get("sessionId")) {
+            *id = session_id;
+        }
+        if let Some(record_cwd) = Self::non_empty_json_string(value.get("cwd")) {
+            *cwd = Some(record_cwd);
+        }
+        *model_provider = Some("anthropic".to_string());
     }
 
     fn record_user_message(
@@ -494,6 +562,7 @@ impl SessionParser {
         let total = json_u64(usage.get("total_tokens")).unwrap_or(0);
         let usage = TokenUsage {
             input_tokens: input,
+            cache_creation_input_tokens: 0,
             cached_input_tokens: cached,
             output_tokens: output,
             reasoning_output_tokens: reasoning,
@@ -502,6 +571,34 @@ impl SessionParser {
         .normalize_total();
         (!usage.is_zero()).then_some(usage)
     }
+
+    fn usage_from_claude_message(message: &Value) -> Option<TokenUsage> {
+        let usage = message.get("usage")?;
+        let input = json_u64(usage.get("input_tokens")).unwrap_or(0);
+        let cache_creation = json_u64(usage.get("cache_creation_input_tokens"))
+            .or_else(|| json_u64(usage.get("cache_creation_tokens")))
+            .unwrap_or_default();
+        let cache_read = json_u64(usage.get("cache_read_input_tokens"))
+            .or_else(|| json_u64(usage.get("cached_input_tokens")))
+            .or_else(|| json_u64(usage.get("cached_tokens")))
+            .unwrap_or(0);
+        let output = json_u64(usage.get("output_tokens")).unwrap_or(0);
+        let reasoning = json_u64(usage.get("reasoning_output_tokens"))
+            .or_else(|| json_u64(usage.get("reasoning_tokens")))
+            .unwrap_or(0);
+        let total = json_u64(usage.get("total_tokens")).unwrap_or(0);
+        let usage = TokenUsage {
+            input_tokens: input,
+            cache_creation_input_tokens: cache_creation,
+            cached_input_tokens: cache_read,
+            output_tokens: output,
+            reasoning_output_tokens: reasoning,
+            total_tokens: total,
+        }
+        .normalize_total_with_separate_cache();
+        (!usage.is_zero()).then_some(usage)
+    }
+
     fn timestamp_from_result(value: &Value) -> Option<String> {
         Self::timestamp_value(value.get("timestamp"))
             .or_else(|| Self::timestamp_value(value.get("created_at")))

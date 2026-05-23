@@ -194,6 +194,69 @@ fn indexes_event_user_message_text() {
 }
 
 #[test]
+fn parses_claude_code_transcript_usage_and_messages() {
+    let dir = temp_dir("claude-transcript");
+    let path = dir.join("session.jsonl");
+    fs::write(
+        &path,
+        [
+            json!({
+                "type": "user",
+                "timestamp": "2026-05-01T00:00:00.000Z",
+                "sessionId": "claude-session-1",
+                "cwd": "/work/project",
+                "message": {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "build the thing"}]
+                }
+            })
+            .to_string(),
+            json!({
+                "type": "assistant",
+                "timestamp": "2026-05-01T00:00:01.000Z",
+                "sessionId": "claude-session-1",
+                "cwd": "/work/project",
+                "message": {
+                    "role": "assistant",
+                    "model": "claude-sonnet-4-5-20250929",
+                    "content": [{"type": "text", "text": "built"}],
+                    "usage": {
+                        "input_tokens": 100,
+                        "cache_creation_input_tokens": 20,
+                        "cache_read_input_tokens": 130,
+                        "output_tokens": 40
+                    }
+                }
+            })
+            .to_string(),
+        ]
+        .join("\n"),
+    )
+    .unwrap();
+
+    let session = SessionParser::parse(&path).unwrap();
+    let usage = session.final_usage().unwrap();
+
+    assert_eq!(session.id, "claude-session-1");
+    assert_eq!(session.cwd.as_deref(), Some("/work/project"));
+    assert_eq!(session.model_provider.as_deref(), Some("anthropic"));
+    assert_eq!(session.model.as_deref(), Some("claude-sonnet-4-5-20250929"));
+    assert_eq!(
+        session.first_user_message.as_deref(),
+        Some("build the thing")
+    );
+    assert_eq!(session.final_assistant_message.as_deref(), Some("built"));
+    assert_eq!(session.token_events.len(), 1);
+    assert_eq!(usage.input_tokens, 100);
+    assert_eq!(usage.cache_creation_input_tokens, 20);
+    assert_eq!(usage.cached_input_tokens, 130);
+    assert_eq!(usage.output_tokens, 40);
+    assert_eq!(usage.total_tokens, 290);
+
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn parse_session_with_fingerprint_matches_file_content_hash() {
     let dir = temp_dir("parse-fingerprint");
     let path = dir.join("session.jsonl");

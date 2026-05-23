@@ -500,11 +500,20 @@ pub(crate) fn draw_detail_summary(frame: &mut Frame, app: &App, session: &Sessio
         "${:.4}  tokens=${:.4}  web=${:.4}  {}",
         cost.total_cost, cost.token_cost, cost.web_search_cost, warning
     );
-    let input_text = format!(
-        "{} uncached + {} cached",
-        format_tokens(cost.uncached_input_tokens),
-        format_tokens(cost.cached_input_tokens)
-    );
+    let input_text = if cost.cache_creation_input_tokens > 0 {
+        format!(
+            "{} input + {} cache write + {} cache read",
+            format_tokens(cost.uncached_input_tokens),
+            format_tokens(cost.cache_creation_input_tokens),
+            format_tokens(cost.cached_input_tokens)
+        )
+    } else {
+        format!(
+            "{} uncached + {} cached",
+            format_tokens(cost.uncached_input_tokens),
+            format_tokens(cost.cached_input_tokens)
+        )
+    };
     let output_text = format!(
         "{} total, {} reasoning",
         format_tokens(cost.output_tokens),
