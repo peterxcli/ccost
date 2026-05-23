@@ -167,7 +167,7 @@ impl SessionParser {
                     }
                     if let Some(turn_model) = Self::model_from_payload(Some(payload)) {
                         current_model = Some(turn_model.clone());
-                        model = Some(turn_model.to_string());
+                        model = Some(turn_model);
                     }
                 }
                 "response_item" => {

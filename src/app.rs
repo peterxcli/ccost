@@ -474,7 +474,6 @@ impl App {
                 self.reverse_sort_direction();
                 false
             }
-            KeyCode::Char(_) | KeyCode::Null => false,
             _ => false,
         }
     }

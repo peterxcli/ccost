@@ -135,7 +135,7 @@ pub(crate) struct IndexWorker {
 }
 
 impl IndexWorker {
-    pub(crate) fn new(root: PathBuf, cache_dir: PathBuf, tx: Sender<LoadMessage>) -> Self {
+    fn new(root: PathBuf, cache_dir: PathBuf, tx: Sender<LoadMessage>) -> Self {
         Self {
             cache_store: CacheStore::with_cache_dir(root, cache_dir),
             tx,

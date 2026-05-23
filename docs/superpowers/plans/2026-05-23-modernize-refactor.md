@@ -30,13 +30,13 @@
 - `src/search.rs`: `SearchIndex` methods and search token helpers owned by `SearchIndex` where practical.
 - `src/pricing.rs`: `Pricing`, `CostEstimate`, and cost calculation.
 - `src/util.rs`: generic filesystem/hash/time/atomic-write helpers only.
-- `src/tests.rs`: compatibility test module for the first pass. Split in a later pass after production boundaries settle.
+- `src/tests/`: domain-specific test modules with `src/tests/mod.rs` as the entrypoint.
 
 ## Task 1: Create Refactor Invariants And Baseline
 
 **Files:**
 - Create: `docs/refactor-invariants.md`
-- Read: `src/tests.rs`
+- Read: `src/tests/mod.rs`
 
 - [ ] **Step 1: Write the invariants document**
 
