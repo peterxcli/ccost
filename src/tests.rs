@@ -5,7 +5,7 @@ use crate::cache::{
     CACHE_SCHEMA_VERSION,
 };
 use crate::models::{GoalUsage, Session, TokenEvent, TokenUsage};
-use crate::parser::{parse_session, parse_session_with_fingerprint};
+use crate::parser::SessionParser;
 use crate::pricing::{estimate_cost, Pricing};
 use crate::search::SearchIndex;
 use crate::ui::{
@@ -81,7 +81,7 @@ fn parses_headless_exec_usage_records() {
     )
     .unwrap();
 
-    let session = parse_session(&path).unwrap();
+    let session = SessionParser::parse(&path).unwrap();
     let final_usage = session.final_usage().unwrap();
 
     assert_eq!(session.token_events.len(), 2);
@@ -148,7 +148,7 @@ fn derives_last_usage_from_cumulative_token_count() {
     )
     .unwrap();
 
-    let session = parse_session(&path).unwrap();
+    let session = SessionParser::parse(&path).unwrap();
 
     assert_eq!(session.token_events.len(), 2);
     assert_eq!(session.token_events[1].last.input_tokens, 80);
@@ -195,7 +195,7 @@ fn parses_first_human_prompt_after_environment_context() {
         )
         .unwrap();
 
-    let session = parse_session(&path).unwrap();
+    let session = SessionParser::parse(&path).unwrap();
     let index = SearchIndex::build(std::slice::from_ref(&session), |_current, _total| {});
 
     assert_eq!(session.first_user_message.as_deref(), Some("hello"));
@@ -225,7 +225,7 @@ fn indexes_event_user_message_text() {
     )
     .unwrap();
 
-    let session = parse_session(&path).unwrap();
+    let session = SessionParser::parse(&path).unwrap();
     let index = SearchIndex::build(std::slice::from_ref(&session), |_current, _total| {});
 
     assert_eq!(
@@ -350,9 +350,12 @@ fn parse_session_with_fingerprint_matches_file_content_hash() {
     .join("\n");
     fs::write(&path, &content).unwrap();
 
-    let parsed =
-        parse_session_with_fingerprint(&path, "session.jsonl", file_metadata_parts(&path).unwrap())
-            .unwrap();
+    let parsed = SessionParser::parse_with_fingerprint(
+        &path,
+        "session.jsonl",
+        file_metadata_parts(&path).unwrap(),
+    )
+    .unwrap();
 
     assert_eq!(
         parsed.session.first_user_message.as_deref(),

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 use crate::models::{FileFingerprint, FileMetadataParts, Session};
-use crate::parser::{parse_session_or_error, parse_session_with_fingerprint_or_error};
+use crate::parser::SessionParser;
 use crate::search::{build_fst_bytes, session_terms, SearchIndex};
 #[cfg(test)]
 use crate::util::hash_file_fingerprint;
@@ -204,7 +204,7 @@ where
 
     for file in merkle_plan.files.iter() {
         let parsed = if file.reused_fingerprint.is_none() {
-            Some(parse_session_with_fingerprint_or_error(
+            Some(SessionParser::parse_with_fingerprint_or_error(
                 root,
                 &file.path,
                 &file.relative_path,
@@ -243,7 +243,7 @@ where
                 path: Some(file.path.clone()),
             });
         } else {
-            let session = parse_session_or_error(&file.path);
+            let session = SessionParser::parse_or_error(&file.path);
             let terms = session_terms(&session);
             docs.push(CachedSessionDoc {
                 relative_path: relative_path.clone(),
@@ -341,8 +341,12 @@ where
                 continue;
             }
 
-            let parsed =
-                parse_session_with_fingerprint_or_error(root, &path, &relative_path, metadata)?;
+            let parsed = SessionParser::parse_with_fingerprint_or_error(
+                root,
+                &path,
+                &relative_path,
+                metadata,
+            )?;
             let terms = session_terms(&parsed.session);
             fingerprints.insert(relative_path.clone(), parsed.fingerprint.clone());
             docs_by_path.insert(
