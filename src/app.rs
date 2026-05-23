@@ -245,10 +245,7 @@ impl App {
     pub(crate) fn poll_loader(&mut self) {
         let mut clear_loader = false;
 
-        loop {
-            let Some(loader) = self.loader.as_ref() else {
-                break;
-            };
+        while let Some(loader) = self.loader.as_ref() {
             match loader.try_recv() {
                 Ok(LoadMessage::Progress(progress)) => {
                     self.loading = Some(progress);
