@@ -24,6 +24,10 @@ pub(crate) struct ModelPrice {
     pub(crate) long_context_threshold: Option<u64>,
     #[serde(default)]
     pub(crate) long_context_multiplier: Option<f64>,
+    #[serde(default)]
+    pub(crate) long_context_input_multiplier: Option<f64>,
+    #[serde(default)]
+    pub(crate) long_context_output_multiplier: Option<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -72,7 +76,21 @@ impl Default for Pricing {
                 cached_input_per_m: 0.5,
                 output_per_m: 30.0,
                 long_context_threshold: Some(272_000),
-                long_context_multiplier: Some(2.0),
+                long_context_multiplier: None,
+                long_context_input_multiplier: Some(2.0),
+                long_context_output_multiplier: Some(1.5),
+            },
+        );
+        models.insert(
+            "gpt-5.4".to_string(),
+            ModelPrice {
+                input_per_m: 2.5,
+                cached_input_per_m: 0.25,
+                output_per_m: 15.0,
+                long_context_threshold: Some(272_000),
+                long_context_multiplier: None,
+                long_context_input_multiplier: Some(2.0),
+                long_context_output_multiplier: Some(1.5),
             },
         );
         Self {
@@ -108,10 +126,25 @@ pub(crate) fn estimate_cost(
         } else {
             1.0
         };
-        estimate.token_cost = multiplier
+        let input_multiplier = if long_context_applied {
+            model_price
+                .long_context_input_multiplier
+                .unwrap_or(multiplier)
+        } else {
+            1.0
+        };
+        let output_multiplier = if long_context_applied {
+            model_price
+                .long_context_output_multiplier
+                .unwrap_or(multiplier)
+        } else {
+            1.0
+        };
+        estimate.token_cost = input_multiplier
             * ((uncached as f64 / 1_000_000.0) * model_price.input_per_m
-                + (cached as f64 / 1_000_000.0) * model_price.cached_input_per_m
-                + (usage.output_tokens as f64 / 1_000_000.0) * model_price.output_per_m);
+                + (cached as f64 / 1_000_000.0) * model_price.cached_input_per_m)
+            + output_multiplier
+                * ((usage.output_tokens as f64 / 1_000_000.0) * model_price.output_per_m);
         estimate.long_context_applied = long_context_applied;
         estimate.known_model_price = true;
     }

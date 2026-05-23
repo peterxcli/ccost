@@ -50,7 +50,7 @@ codex-cost [--sessions PATH] [--pricing PATH] [--no-web-cost] [--read-only-index
 
 ## Pricing
 
-Built-in pricing includes GPT-5.5 token and web-search defaults. Override with `--pricing pricing.json`:
+Built-in pricing includes GPT-5.5, GPT-5.4, and web-search defaults. Override with `--pricing pricing.json`:
 
 ```json
 {
@@ -61,8 +61,19 @@ Built-in pricing includes GPT-5.5 token and web-search defaults. Override with `
       "cached_input_per_m": 0.5,
       "output_per_m": 30.0,
       "long_context_threshold": 272000,
-      "long_context_multiplier": 2.0
+      "long_context_input_multiplier": 2.0,
+      "long_context_output_multiplier": 1.5
+    },
+    "gpt-5.4": {
+      "input_per_m": 2.5,
+      "cached_input_per_m": 0.25,
+      "output_per_m": 15.0,
+      "long_context_threshold": 272000,
+      "long_context_input_multiplier": 2.0,
+      "long_context_output_multiplier": 1.5
     }
   }
 }
 ```
+
+For older pricing overrides, `long_context_multiplier` is still accepted and applies to all token classes when the input/output-specific fields are omitted.
