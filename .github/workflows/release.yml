@@ -10,13 +10,14 @@ permissions:
 
 env:
   BIN_NAME: codex-cost
-  TARGETS: aarch64-apple-darwin x86_64-apple-darwin
-  TAP_REPO: peterxcli/homebrew-tap
+  TARGET_AMD64: x86_64-unknown-linux-gnu
+  TARGET_ARM64: aarch64-unknown-linux-gnu
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
 jobs:
   release:
-    name: Release macOS binaries
-    runs-on: macos-latest
+    name: Release Linux binaries
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source
@@ -25,8 +26,12 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install macOS targets
-        run: rustup target add ${TARGETS}
+      - name: Install Linux build targets
+        run: |
+          set -euo pipefail
+          rustup target add "${TARGET_AMD64}" "${TARGET_ARM64}"
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Validate tag version
         run: |
@@ -44,98 +49,33 @@ jobs:
       - name: Build
         run: |
           set -euo pipefail
-          for target in ${TARGETS}; do
-            cargo build --release --locked --target "${target}"
-          done
+          cargo build --release --locked --target "${TARGET_AMD64}"
+          cargo build --release --locked --target "${TARGET_ARM64}"
 
       - name: Package
-        id: package
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          for target in ${TARGETS}; do
-            asset="${BIN_NAME}-${target}.tar.gz"
+          package_asset() {
+            local target="$1"
+            local arch="$2"
+            local asset="${BIN_NAME}-linux-${arch}.tar.gz"
+            local staging
             staging="$(mktemp -d)"
             cp "target/${target}/release/${BIN_NAME}" "${staging}/${BIN_NAME}"
             tar -C "${staging}" -czf "${asset}" "${BIN_NAME}"
-            sha256="$(shasum -a 256 "${asset}" | awk '{print $1}')"
-            case "${target}" in
-              aarch64-apple-darwin)
-                echo "sha256_arm64=${sha256}" >> "${GITHUB_OUTPUT}"
-                ;;
-              x86_64-apple-darwin)
-                echo "sha256_x86_64=${sha256}" >> "${GITHUB_OUTPUT}"
-                ;;
-            esac
-          done
-          {
-            echo "version=${version}"
-            echo "asset_pattern=${BIN_NAME}-*-apple-darwin.tar.gz"
-          } >> "${GITHUB_OUTPUT}"
+            shasum -a 256 "${asset}" > "${asset}.sha256"
+          }
+
+          package_asset "${TARGET_AMD64}" amd64
+          package_asset "${TARGET_ARM64}" arm64
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.package.outputs.asset_pattern }}
+          files: |
+            ${{ env.BIN_NAME }}-linux-amd64.tar.gz
+            ${{ env.BIN_NAME }}-linux-amd64.tar.gz.sha256
+            ${{ env.BIN_NAME }}-linux-arm64.tar.gz
+            ${{ env.BIN_NAME }}-linux-arm64.tar.gz.sha256
           fail_on_unmatched_files: true
           generate_release_notes: true
-
-      - name: Publish Homebrew tap release assets
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          set -euo pipefail
-          tap_tag="${BIN_NAME}-v${{ steps.package.outputs.version }}"
-          if gh release view "${tap_tag}" --repo "${TAP_REPO}" >/dev/null 2>&1; then
-            gh release upload "${tap_tag}" ${BIN_NAME}-*-apple-darwin.tar.gz --repo "${TAP_REPO}" --clobber
-          else
-            gh release create "${tap_tag}" ${BIN_NAME}-*-apple-darwin.tar.gz \
-              --repo "${TAP_REPO}" \
-              --target main \
-              --title "${BIN_NAME} v${{ steps.package.outputs.version }}" \
-              --notes "Homebrew Cask binaries for ${BIN_NAME} v${{ steps.package.outputs.version }}."
-          fi
-
-      - name: Checkout Homebrew tap
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.TAP_REPO }}
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: homebrew-tap
-
-      - name: Update Homebrew cask
-        run: |
-          set -euo pipefail
-          cask_path="homebrew-tap/Casks/${BIN_NAME}.rb"
-          mkdir -p "$(dirname "${cask_path}")"
-          cat > "${cask_path}" <<EOF_CASK
-          cask "${BIN_NAME}" do
-            version "${{ steps.package.outputs.version }}"
-            arch arm: "aarch64", intel: "x86_64"
-
-            sha256 arm: "${{ steps.package.outputs.sha256_arm64 }}",
-                   intel: "${{ steps.package.outputs.sha256_x86_64 }}"
-
-            url "https://github.com/${TAP_REPO}/releases/download/${BIN_NAME}-v#{version}/${BIN_NAME}-#{arch}-apple-darwin.tar.gz"
-            name "${BIN_NAME}"
-            desc "Terminal UI for inspecting Codex session token usage and cost estimates"
-            homepage "https://github.com/${GITHUB_REPOSITORY}"
-
-            binary "${BIN_NAME}"
-          end
-          EOF_CASK
-          ruby -pi -e 'gsub(/^ {10}/, "")' "${cask_path}"
-
-      - name: Commit Homebrew tap update
-        working-directory: homebrew-tap
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "Casks/${BIN_NAME}.rb"
-          if git diff --cached --quiet; then
-            echo "Homebrew cask already up to date."
-            exit 0
-          fi
-          git commit -m "Update ${BIN_NAME} to ${{ steps.package.outputs.version }}"
-          git push
