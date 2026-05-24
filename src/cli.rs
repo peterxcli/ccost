@@ -34,8 +34,17 @@ pub fn run() -> Result<()> {
 
 impl Args {
     pub(crate) fn parse() -> Result<Self> {
-        let mut args = std::env::args().skip(1);
+        Self::parse_from(std::env::args())
+    }
+
+    pub(crate) fn parse_from<I, S>(args: I) -> Result<Self>
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        let mut args = args.into_iter().map(Into::into).skip(1);
         let mut parsed = Args::default();
+        let mut sessions_source: Option<&'static str> = None;
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
@@ -51,7 +60,17 @@ impl Args {
                     let Some(value) = args.next() else {
                         bail!("--sessions requires a path");
                     };
-                    parsed.sessions = Some(expand_tilde(&value));
+                    parsed.set_sessions(
+                        "--sessions",
+                        expand_tilde(&value),
+                        &mut sessions_source,
+                    )?;
+                }
+                "--codex" => {
+                    parsed.set_sessions("--codex", codex_sessions_dir(), &mut sessions_source)?;
+                }
+                "--claude" => {
+                    parsed.set_sessions("--claude", claude_sessions_dir(), &mut sessions_source)?;
                 }
                 "--pricing" => {
                     let Some(value) = args.next() else {
@@ -69,7 +88,11 @@ impl Args {
                     parsed.force_index = true;
                 }
                 other if other.starts_with("--sessions=") => {
-                    parsed.sessions = Some(expand_tilde(&other["--sessions=".len()..]));
+                    parsed.set_sessions(
+                        "--sessions",
+                        expand_tilde(&other["--sessions=".len()..]),
+                        &mut sessions_source,
+                    )?;
                 }
                 other if other.starts_with("--pricing=") => {
                     parsed.pricing = Some(expand_tilde(&other["--pricing=".len()..]));
@@ -80,11 +103,38 @@ impl Args {
 
         Ok(parsed)
     }
+
+    fn set_sessions(
+        &mut self,
+        source: &'static str,
+        path: PathBuf,
+        sessions_source: &mut Option<&'static str>,
+    ) -> Result<()> {
+        if let Some(existing) = *sessions_source {
+            if existing == source {
+                self.sessions = Some(path);
+                return Ok(());
+            }
+            if existing == "--codex" && source == "--claude"
+                || existing == "--claude" && source == "--codex"
+            {
+                bail!("--codex and --claude cannot be used together");
+            }
+            if existing == "--sessions" || source == "--sessions" {
+                bail!("--codex or --claude cannot be used with --sessions");
+            }
+            bail!("{existing} and {source} cannot be used together");
+        }
+
+        *sessions_source = Some(source);
+        self.sessions = Some(path);
+        Ok(())
+    }
 }
 
 pub(crate) fn print_help() {
     println!(
-        "{} {}\n\nUSAGE:\n    {} [--sessions PATH] [--pricing PATH] [--no-web-cost]\n\nOPTIONS:\n    --sessions PATH      Codex or Claude Code session directory containing JSONL files\n    --pricing PATH       Optional pricing JSON override\n    --no-web-cost        Disable web-search call cost in estimates\n    --read-only-index    Open without writing the persisted search cache\n    --force-index        Write the cache even when index.lock is held; can corrupt cache data\n    -h, --help           Print help\n    -V, --version        Print version",
+        "{} {}\n\nUSAGE:\n    {} [--codex | --claude | --sessions PATH] [--pricing PATH] [--no-web-cost] [--read-only-index] [--force-index]\n\nOPTIONS:\n    --codex              Open the default Codex session directory\n    --claude             Open the default Claude Code project transcript directory\n    --sessions PATH      Codex or Claude Code session directory containing JSONL files\n    --pricing PATH       Optional pricing JSON override\n    --no-web-cost        Disable web-search call cost in estimates\n    --read-only-index    Open without writing the persisted search cache\n    --force-index        Write the cache even when index.lock is held; can corrupt cache data\n    -h, --help           Print help\n    -V, --version        Print version",
         APP_NAME,
         env!("CARGO_PKG_VERSION"),
         APP_NAME
@@ -166,6 +216,10 @@ pub(crate) fn expand_tilde(value: &str) -> PathBuf {
 }
 
 pub(crate) fn default_sessions_dir() -> PathBuf {
+    codex_sessions_dir()
+}
+
+pub(crate) fn codex_sessions_dir() -> PathBuf {
     if let Ok(codex_home) = std::env::var("CODEX_HOME") {
         return PathBuf::from(codex_home).join("sessions");
     }
@@ -173,4 +227,11 @@ pub(crate) fn default_sessions_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".codex")
         .join("sessions")
+}
+
+pub(crate) fn claude_sessions_dir() -> PathBuf {
+    dirs_next::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".claude")
+        .join("projects")
 }

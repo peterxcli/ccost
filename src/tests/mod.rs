@@ -98,6 +98,7 @@ fn app_for_key_tests() -> App {
 
 mod app_tests;
 mod cache_tests;
+mod cli_tests;
 mod parser_tests;
 mod pricing_tests;
 mod search_tests;

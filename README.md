@@ -13,16 +13,24 @@ brew install --cask peterxcli/tap/ccost
 ## Run
 
 ```bash
-ccost --sessions ~/.codex/sessions
+ccost
 ```
 
-For Claude Code transcripts:
+`ccost` opens the default Codex session directory. You can also choose Codex or Claude Code explicitly:
 
 ```bash
-ccost --sessions ~/.claude/projects
+ccost --codex
+ccost --claude
 ```
 
-Default session directory: `$CODEX_HOME/sessions`, or `~/.codex/sessions` when `CODEX_HOME` is unset.
+Use a custom session directory when needed:
+
+```bash
+ccost --sessions /path/to/jsonl/sessions
+```
+
+Default Codex directory: `$CODEX_HOME/sessions`, or `~/.codex/sessions` when `CODEX_HOME` is unset.
+Default Claude Code directory: `~/.claude/projects`.
 
 ## Features
 
@@ -48,9 +56,12 @@ Default session directory: `$CODEX_HOME/sessions`, or `~/.codex/sessions` when `
 ## Options
 
 ```bash
-ccost [--sessions PATH] [--pricing PATH] [--no-web-cost] [--read-only-index] [--force-index]
+ccost [--codex | --claude | --sessions PATH] [--pricing PATH] [--no-web-cost] [--read-only-index] [--force-index]
 ```
 
+- `--codex`: open the default Codex session directory.
+- `--claude`: open the default Claude Code project transcript directory.
+- `--sessions PATH`: open a custom Codex or Claude Code session directory containing JSONL files.
 - `--read-only-index`: open without writing the persisted search cache.
 - `--force-index`: write without the lock. Use only after confirming no other TUI is running.
 

@@ -51,14 +51,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "cfg-if"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
-
-[[package]]
 name = "ccost"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -73,6 +67,12 @@ dependencies = [
  "unicode-segmentation",
  "walkdir",
 ]
+
+[[package]]
+name = "cfg-if"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "compact_str"
